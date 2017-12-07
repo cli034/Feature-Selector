@@ -62,7 +62,7 @@ def leave_one_out_cross_validation(data, current_features, k):
     for i in range(len(data)):
         tempArr = []
         tempArr = getX(colFeature, i)
-        shortestDst = 10000
+        shortestDst = float("inf")
         for j in range(len(data)):
             if not (i == j):
                 tempArr2 = []
@@ -139,7 +139,7 @@ def leave_one_out_cross_validation_backward(data, current_features, k):
     for i in range(len(data)):
         tempArr = []
         tempArr = getX(colFeature, i)
-        shortestDst = 10000
+        shortestDst = float("inf")
         for j in range(len(data)):
             if not (i == j):
                 tempArr2 = []
@@ -203,6 +203,104 @@ def backwardElimination(dataSet):
             print("(Warning, Accuracy has decreased! Continuing search in case of local maxima) \n")
             
     print("Best Feature set {" + "".join(str(curr_best_feature)) + "}, accuracy is " + str(best_accuracy) + "% \n") 
+
+#compute accuracy of a set of features, for adding feature k
+def leave_one_out_cross_validation_special(data, current_features, k, prev_fail_cnt):
+    #k is the column which is the feature
+    colFeature = [] #stores actual features
+    tempDst = 0 #distance of each comparison
+    indexI = 0 #store the first nearest neighbor index
+    indexJ = 0 #store the second nearest neighbor index
+    features_classification = [] #put 1s and 0s in a list to check accuracy
+    sum1 = 0 #total number of 1s
+    failureCounter = 0 #number of failures matches with nearest neighbor
+    
+    #add current set of features to a list to compute for accuracy
+    if current_features:
+        for i in current_features:
+            colFeature.append(allFeaturesList[i])
+    
+    #add feature k to the list too
+    if k > 0:
+        colFeature.append(allFeaturesList[k])
+    
+    for i in range(len(data)):
+        tempArr = []
+        tempArr = getX(colFeature, i)
+        shortestDst = float("inf")
+        for j in range(len(data)):
+            if not (i == j):
+                tempArr2 = []
+                tempArr2 = getX(colFeature, j)
+                tempDst = distance.euclidean(tempArr, tempArr2)
+                if (tempDst < shortestDst):
+                    shortestDst = tempDst
+                    indexI = i
+                    indexJ = j
+        
+        if(data[indexI][0] == data[indexJ][0]):
+            features_classification.append(1)
+        else:
+            features_classification.append(0)
+            failureCounter += 1
+            if (failureCounter > prev_fail_cnt):
+                return 0
+            
+    for i in features_classification:
+        if(i == 1):
+            sum1 += 1
+
+    return sum1 / float(len(data)) * 100
+
+#forward selection search
+def adrianSpecial(dataSet):
+    best_accuracy = 0 #best accuracy overall
+    current_set_of_features = []
+    best_feature_index = 0
+    curr_best_feature = [] #set of feature with the best accuracy overall
+    
+    for i in range(1, len(dataSet[0])):
+        print("On the " + str(i) + "th level of the search tree")
+        feature_to_add_at_this_level = i
+        best_so_far_accuracy = 0 #best accuracy at the level
+        failCount = float("inf")
+        overall_least_fail = float("inf")
+        for j in range(1, len(dataSet[0])):
+            if not intersect(current_set_of_features, j):
+                if (failCount >= overall_least_fail):
+                    accuracy = leave_one_out_cross_validation_special(dataSet, current_set_of_features, j, failCount)
+                else:
+                    accuracy = leave_one_out_cross_validation_special(dataSet, current_set_of_features, j, overall_least_fail)
+                
+                #necessary check because accuracy will retun 0 when the previous one has more failures
+                if (accuracy != 0):    
+                    failCount = len(dataSet) - accuracy
+                else:
+                    failCount = len(dataSet)- best_so_far_accuracy
+                
+                if (failCount < overall_least_fail):
+                    overall_least_fail = failCount
+                
+                if not current_set_of_features:
+                    print("Using feature(s) {" + str(j) + "} accuracy is " + str(accuracy) + "%")
+                else:
+                    print("Using feature(s) {" + str(j) + ", " + "".join(str(current_set_of_features)) + "} accuracy is " + str(accuracy) + "%")
+                
+                if (accuracy > best_so_far_accuracy):
+                    best_so_far_accuracy = accuracy
+                    feature_to_add_at_this_level = j
+                    best_feature_index = j
+        if (best_so_far_accuracy > best_accuracy):
+            best_accuracy = best_so_far_accuracy
+            curr_best_feature.append(best_feature_index)
+        else:
+            print("(Warning, Accuracy has decreased! Continuing search in case of local maxima)")
+            
+        if (feature_to_add_at_this_level > 0):
+            current_set_of_features.append(feature_to_add_at_this_level)
+            print ("Feature set {" + "".join(str(current_set_of_features)) + "} was best, accuracy is " + str(best_so_far_accuracy) + "% \n")
+    
+    print("Best Feature set {" + "".join(str(curr_best_feature)) + "}, accuracy is " + str(best_accuracy) + "% \n")    
     
 print("Welcome to Adrian Li's Feature Selection Algorithm")
 filename = raw_input("Type in the name of the file to test: ")
@@ -233,7 +331,7 @@ elif (option == 2):
     backwardElimination(data)
     #print leave_one_out_cross_validation_backward(data, [1,2,3,4], 4)
 elif (option == 3):
-    print("Adrian's Special Algorithm")
+    adrianSpecial(data)
 else:
     print("Wrong option")
     
